@@ -5,9 +5,6 @@ import Model.users;
 
 /**
  * Service layer for user-related operations.
- * 
- * This class coordinates higher-level logic and delegates persistence
- * to {@link UserDAO}.
  */
 public class UserService {
 
@@ -17,22 +14,18 @@ public class UserService {
 		this.userDAO = new UserDAO();
 	}
 
-	
 	public void createUserAccount(users user) {
 		userDAO.addUser(user);
 	}
-
 
 	public boolean updateUserAccount(users user) {
 		return userDAO.updateUser(user);
 	}
 
-	
 	public boolean deactivateAccount(int userId) {
 		return userDAO.deactivateUser(userId);
 	}
 
-	
 	public boolean resetPassword(int userId, String newPassword) {
 		users u = userDAO.getUserById(userId);
 		if (u == null || newPassword == null) {
@@ -42,7 +35,6 @@ public class UserService {
 		return userDAO.updateUser(u);
 	}
 
-	
 	public boolean recoverAccount(String email) {
 		users u = userDAO.getUserByEmail(email);
 		if (u == null) {
@@ -52,12 +44,6 @@ public class UserService {
 		return userDAO.updateUser(u);
 	}
 
-	/**
-	 * Helper method for authentication to retrieve a user by email.
-	 * 
-	 * @param email the email to search for
-	 * @return the user if found, otherwise null
-	 */
 	public users getUserByEmail(String email) {
 		return userDAO.getUserByEmail(email);
 	}

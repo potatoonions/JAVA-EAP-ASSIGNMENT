@@ -1,8 +1,8 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
 <%@ page import="java.util.List" %>
-<%@ page import="DAO.*" %>
-<%@ page import="Model.*" %>
+<%@ page import="DAO.UserDAO" %>
+<%@ page import="Model.users" %>
 
 <%
     UserDAO dao = new UserDAO();
