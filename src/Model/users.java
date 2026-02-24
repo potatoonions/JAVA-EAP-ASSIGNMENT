@@ -12,9 +12,11 @@ public class users {
 	private String role;
 	private String status;
 	
+	// Constructor
 	public users() {
 	}
 	
+	// Constructor with all parameters
 	public users(int userId, String name, String email, String password, String role, String status) {
 		this.userId = userId;
 		this.name = name;
