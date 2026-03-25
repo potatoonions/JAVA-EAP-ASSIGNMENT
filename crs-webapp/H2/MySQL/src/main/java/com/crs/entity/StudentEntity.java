@@ -1,4 +1,4 @@
-package com.crs.model;
+package com.crs.entity;
  
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
