@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Course Recovery System</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d2e; --card: #242740;
+    --border: #3a3d58; --accent: #7b68ee; --teal: #2ec4b6;
+    --coral: #ff6b6b; --amber: #ffbe0b; --text: #eeeeff;
+    --muted: #9090b0; --mono: 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 32px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 18px; color: var(--accent); }
+  header span { font-size: 12px; color: var(--muted); }
+  .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; background: var(--card); border: 1px solid var(--border); color: var(--teal); margin-left: auto; }
+  .main { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 53px); }
+  nav { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; }
+  nav .section { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .08em; padding: 12px 20px 6px; }
+  nav a { display: block; padding: 9px 20px; font-size: 13px; color: var(--muted); text-decoration: none; cursor: pointer; border-left: 3px solid transparent; }
+  nav a:hover { color: var(--text); background: rgba(123,104,238,.08); }
+  nav a.active { color: var(--text); border-left-color: var(--accent); background: rgba(123,104,238,.12); }
+  .content { padding: 28px 36px; overflow-y: auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+  h2 { font-size: 22px; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; border-left: 4px solid var(--accent); }
+  .card .val { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .card .lbl { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .card.teal { border-left-color: var(--teal); } .card.teal .val { color: var(--teal); }
+  .card.coral { border-left-color: var(--coral); } .card.coral .val { color: var(--coral); }
+  .card.amber { border-left-color: var(--amber); } .card.amber .val { color: var(--amber); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; font-size: 13px; }
+  th { background: #2e3250; color: var(--muted); font-weight: 500; padding: 10px 14px; text-align: left; font-size: 11px; letter-spacing: .04em; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,.03); }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .pill.active { background: rgba(46,196,182,.15); color: var(--teal); }
+  .pill.recovery { background: rgba(255,190,11,.12); color: var(--amber); }
+  .pill.enrolled { background: rgba(123,104,238,.15); color: var(--accent); }
+  .pill.fail { background: rgba(255,107,107,.12); color: var(--coral); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 640px; }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 5px; }
+  input, select, textarea { width: 100%; background: #2a2e4a; border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 9px 12px; font-size: 13px; font-family: inherit; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .btn { padding: 9px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #6a58d6; }
+  .btn-secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  .btn-secondary:hover { background: rgba(123,104,238,.1); }
+  .btn-danger { background: var(--coral); color: #fff; }
+  .result-box { background: #1a2535; border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: var(--mono); font-size: 12px; color: var(--teal); white-space: pre-wrap; max-height: 320px; overflow-y: auto; margin-top: 16px; }
+  .endpoint { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; margin-bottom: 10px; }
+  .ep-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .method { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; }
+  .GET { background: rgba(46,196,182,.15); color: var(--teal); }
+  .POST { background: rgba(123,104,238,.15); color: var(--accent); }
+  .PUT { background: rgba(255,190,11,.12); color: var(--amber); }
+  .DELETE { background: rgba(255,107,107,.12); color: var(--coral); }
+  .path { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .ep-desc { font-size: 12px; color: var(--muted); }
+  .spacer { height: 20px; }
+  .section-hdr { font-size: 14px; font-weight: 600; margin: 24px 0 12px; color: var(--text); padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙ Course Recovery System</h1>
+  <span>v1.0.0</span>
+  <div class="badge" id="health-badge">Checking...</div>
+</header>
+<div class="main">
+  <nav>
+    <div class="section">Overview</div>
+    <a class="active" onclick="show('dashboard',this)">Dashboard</a>
+    <div class="section">Academic</div>
+    <a onclick="show('students',this)">Students</a>
+    <a onclick="show('eligibility',this)">Eligibility</a>
+    <a onclick="show('reports',this)">Reports</a>
+    <div class="section">Communication</div>
+    <a onclick="show('email',this)">Email Logs</a>
+    <div class="section">API</div>
+    <a onclick="show('api',this)">API Reference</a>
+    <div class="section">System</div>
+    <a onclick="show('health',this)">Health</a>
+  </nav>
+  <div class="content">
+ 
+    <!-- Dashboard -->
+    <div id="dashboard" class="page active">
+      <h2>Dashboard</h2>
+      <p class="sub">Course Recovery System — operational overview</p>
+      <div class="cards">
+        <div class="card"><div class="val" id="d-students">—</div><div class="lbl">Total students</div></div>
+        <div class="card teal"><div class="val" id="d-enrolled">—</div><div class="lbl">Enrolled</div></div>
+        <div class="card amber"><div class="val" id="d-recovery">—</div><div class="lbl">In recovery</div></div>
+        <div class="card coral"><div class="val" id="d-emails">—</div><div class="lbl">Emails logged</div></div>
+      </div>
+      <div class="section-hdr">Recent activity</div>
+      <table><thead><tr><th>Time</th><th>Event</th><th>Student</th><th>Status</th></tr></thead>
+      <tbody id="activity-table"></tbody></table>
+    </div>
+ 
+    <!-- Students -->
+    <div id="students" class="page">
+      <h2>Students</h2>
+      <p class="sub">Register and manage student records</p>
+      <div class="section-hdr">Register new student</div>
+      <div class="form-grid">
+        <div><label>User ID</label><input id="s-id" placeholder="S099"></div>
+        <div><label>First name</label><input id="s-first" placeholder="Alice"></div>
+        <div><label>Last name</label><input id="s-last" placeholder="Tan"></div>
+        <div><label>Email</label><input id="s-email" placeholder="alice@university.edu"></div>
+        <div><label>Programme</label><input id="s-prog" placeholder="Bachelor of Computer Science"></div>
+        <div><label>Level</label><select id="s-level"><option>100</option><option>200</option><option selected>300</option><option>400</option></select></div>
+        <div><label>Semester</label><input id="s-sem" value="SEM1 2024/2025"></div>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" onclick="registerStudent()">Register Student</button>
+      <div class="result-box" id="student-result" style="display:none"></div>
+    </div>
+ 
+    <!-- Eligibility -->
+    <div id="eligibility" class="page">
+      <h2>Eligibility Checker</h2>
+      <p class="sub">Run CGPA and failed-course eligibility checks</p>
+      <div class="form-grid" style="max-width:420px">
+        <div><label>Student ID</label><input id="e-id" placeholder="S001"></div>
+        <div><label>Semester</label><input id="e-sem" value="SEM1 2024/2025"></div>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" onclick="checkEligibility()">Check Eligibility</button>
+      <button class="btn btn-secondary" style="margin-left:10px" onclick="requestEnrol()">Enrol if Eligible</button>
+      <div class="result-box" id="eligibility-result" style="display:none"></div>
+    </div>
+ 
+    <!-- Reports -->
+    <div id="reports" class="page">
+      <h2>Academic Reports</h2>
+      <p class="sub">Generate semester and yearly performance reports</p>
+      <div class="form-grid" style="max-width:420px">
+        <div><label>Student ID</label><input id="r-id" placeholder="S001"></div>
+        <div><label>Semester</label><input id="r-sem" value="SEM1 2024/2025"></div>
+        <div><label>Year</label><input id="r-year" placeholder="2024"></div>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" onclick="getSemReport()">Semester Report</button>
+      <button class="btn btn-secondary" style="margin-left:10px" onclick="getYearReport()">Yearly Report</button>
+      <div class="result-box" id="report-result" style="display:none"></div>
+    </div>
+ 
+    <!-- Email Logs -->
+    <div id="email" class="page">
+      <h2>Email Logs</h2>
+      <p class="sub">Email dispatch audit trail</p>
+      <button class="btn btn-secondary" onclick="loadEmails()">Refresh Audit Log</button>
+      <div class="spacer"></div>
+      <table><thead><tr><th>Sent at</th><th>Recipient</th><th>Type</th><th>Subject</th><th>Status</th></tr></thead>
+      <tbody id="email-table"><tr><td colspan="5" style="color:var(--muted);text-align:center">Click Refresh to load</td></tr></tbody></table>
+    </div>
+ 
+    <!-- API Reference -->
+    <div id="api" class="page">
+      <h2>API Reference</h2>
+      <p class="sub">Base URL: <code style="color:var(--teal)">/api</code> — all endpoints return <code>ApiResponse&lt;T&gt;</code> JSON</p>
+ 
+      <div class="section-hdr">Eligibility & Enrolment</div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/enrollment/eligibility/{studentId}?semester=</span></div><p class="ep-desc">Check eligibility — returns CGPA, failed course count, and decision</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/enrollment/{studentId}?semester=</span></div><p class="ep-desc">Enrol student — advances level/semester if eligible</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/enrollment/ineligible</span></div><p class="ep-desc">List all ineligible student IDs</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/enrollment/register</span></div><p class="ep-desc">Register new student (userId, firstName, lastName, email, program, level, semester)</p></div>
+ 
+      <div class="section-hdr">Academic Reports</div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/reports/semester?studentId=&semester=</span></div><p class="ep-desc">Generate and persist semester report</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/reports/yearly?studentId=&year=</span></div><p class="ep-desc">Generate and persist yearly report</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/reports/student/{studentId}</span></div><p class="ep-desc">List all historical reports for a student</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/reports/export?studentId=&semester=</span></div><p class="ep-desc">Export report as plain text</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/reports/email?studentId=&semester=&email=</span></div><p class="ep-desc">Email report to recipient</p></div>
+ 
+      <div class="section-hdr">User Management</div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/users</span></div><p class="ep-desc">Create user account (userId, firstName, lastName, email, password, role)</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/users/{userId}</span></div><p class="ep-desc">Get user by ID</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/users/email/{email}</span></div><p class="ep-desc">Get user by email</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/users</span></div><p class="ep-desc">List all users</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method PUT">PUT</span><span class="path">/users/{userId}/status?status=INACTIVE</span></div><p class="ep-desc">Update account status</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/users/recover?email=</span></div><p class="ep-desc">Recover inactive account</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/users/{userId}/role?role=INSTRUCTOR</span></div><p class="ep-desc">Assign role to user</p></div>
+ 
+      <div class="section-hdr">Authentication</div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/auth/reset-password?email=</span></div><p class="ep-desc">Initiate password reset</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/auth/reset-password/complete?token=&newPassword=</span></div><p class="ep-desc">Complete password reset</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/auth/validate?email=&password=</span></div><p class="ep-desc">Validate credentials</p></div>
+ 
+      <div class="section-hdr">Notifications</div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/notifications/audit</span></div><p class="ep-desc">Full email audit log</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/notifications/audit/{email}</span></div><p class="ep-desc">Audit log for one recipient</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method POST">POST</span><span class="path">/notifications/scheduler/process</span></div><p class="ep-desc">Manually trigger scheduler cycle</p></div>
+ 
+      <div class="section-hdr">System</div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/health</span></div><p class="ep-desc">Application health check</p></div>
+      <div class="endpoint"><div class="ep-row"><span class="method GET">GET</span><span class="path">/h2-console</span></div><p class="ep-desc">H2 database console (dev mode only)</p></div>
+    </div>
+ 
+    <!-- Health -->
+    <div id="health" class="page">
+      <h2>System Health</h2>
+      <p class="sub">Live application status</p>
+      <div class="result-box" id="health-result">Loading...</div>
+    </div>
+ 
+  </div>
+</div>
+ 
+<script>
+const BASE = '/api';
+ 
+function show(id, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  if (id === 'health') fetchHealth();
+  if (id === 'dashboard') loadDashboard();
+}
+ 
+async function apiFetch(url, opts = {}) {
+  try {
+    const r = await fetch(BASE + url, { headers: {'Content-Type': 'application/json'}, ...opts });
+    return await r.json();
+  } catch (e) {
+    return { status: 0, message: 'Network error: ' + e.message, data: null };
+  }
+}
+ 
+function resultBox(id, data) {
+  const el = document.getElementById(id);
+  el.style.display = 'block';
+  el.textContent = JSON.stringify(data, null, 2);
+}
+ 
+async function fetchHealth() {
+  const r = await apiFetch('/health');
+  const badge = document.getElementById('health-badge');
+  if (r.status === 200) { badge.textContent = 'UP'; badge.style.color = '#2ec4b6'; }
+  else { badge.textContent = 'DOWN'; badge.style.color = '#ff6b6b'; }
+  document.getElementById('health-result').textContent = JSON.stringify(r, null, 2);
+}
+ 
+async function loadDashboard() {
+  const users = await apiFetch('/users');
+  const emails = await apiFetch('/notifications/audit');
+  const inelig = await apiFetch('/enrollment/ineligible');
+  document.getElementById('d-students').textContent = (users.data || []).length || '—';
+  document.getElementById('d-emails').textContent   = (emails.data || []).length || '—';
+  document.getElementById('d-recovery').textContent = (inelig.data || []).length || '—';
+  document.getElementById('d-enrolled').textContent = Math.max(0, ((users.data||[]).length) - ((inelig.data||[]).length)) || '—';
+ 
+  const tb = document.getElementById('activity-table');
+  const emailList = (emails.data || []).slice(0, 8);
+  tb.innerHTML = emailList.length ? emailList.map(e =>
+    `<tr><td>${new Date(e.sentAt||Date.now()).toLocaleTimeString()}</td><td>${e.emailType||'—'}</td><td>${e.recipientEmail||'—'}</td><td><span class="pill active">${e.deliveryStatus||'SENT'}</span></td></tr>`
+  ).join('') : `<tr><td colspan="4" style="color:var(--muted);text-align:center">No activity yet — run some API calls first</td></tr>`;
+}
+ 
+async function registerStudent() {
+  const params = new URLSearchParams({
+    userId: document.getElementById('s-id').value,
+    firstName: document.getElementById('s-first').value,
+    lastName: document.getElementById('s-last').value,
+    email: document.getElementById('s-email').value,
+    program: document.getElementById('s-prog').value,
+    level: document.getElementById('s-level').value,
+    semester: document.getElementById('s-sem').value
+  });
+  const r = await apiFetch('/enrollment/register?' + params, { method: 'POST' });
+  resultBox('student-result', r);
+}
+ 
+async function checkEligibility() {
+  const id = document.getElementById('e-id').value;
+  const sem = encodeURIComponent(document.getElementById('e-sem').value);
+  const r = await apiFetch(`/enrollment/eligibility/${id}?semester=${sem}`);
+  resultBox('eligibility-result', r);
+}
+ 
+async function requestEnrol() {
+  const id = document.getElementById('e-id').value;
+  const sem = encodeURIComponent(document.getElementById('e-sem').value);
+  const r = await apiFetch(`/enrollment/${id}?semester=${sem}`, { method: 'POST' });
+  resultBox('eligibility-result', r);
+}
+ 
+async function getSemReport() {
+  const id = document.getElementById('r-id').value;
+  const sem = encodeURIComponent(document.getElementById('r-sem').value);
+  const r = await apiFetch(`/reports/semester?studentId=${id}&semester=${sem}`);
+  resultBox('report-result', r);
+}
+ 
+async function getYearReport() {
+  const id = document.getElementById('r-id').value;
+  const year = document.getElementById('r-year').value;
+  const r = await apiFetch(`/reports/yearly?studentId=${id}&year=${year}`);
+  resultBox('report-result', r);
+}
+ 
+async function loadEmails() {
+  const r = await apiFetch('/notifications/audit');
+  const rows = (r.data || []).map(e =>
+    `<tr><td>${e.sentAt||'—'}</td><td>${e.recipientEmail||'—'}</td><td>${e.emailType||'—'}</td><td>${(e.subject||'').substring(0,40)}</td><td><span class="pill ${e.deliveryStatus==='SENT'?'active':e.deliveryStatus==='FAILED'?'fail':'recovery'}">${e.deliveryStatus||'—'}</span></td></tr>`
+  ).join('');
+  document.getElementById('email-table').innerHTML = rows ||
+    `<tr><td colspan="5" style="color:var(--muted);text-align:center">No email records yet</td></tr>`;
+}
+ 
+window.addEventListener('load', () => { fetchHealth(); loadDashboard(); });
+</script>
+</body>
+</html>
