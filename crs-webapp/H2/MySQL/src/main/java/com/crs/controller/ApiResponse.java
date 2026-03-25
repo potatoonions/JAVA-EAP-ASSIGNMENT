@@ -1,55 +1,45 @@
 package com.crs.controller;
 
-public class ApiResponse<T> {
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
-    private final int statusCode;
-    private final String message;
-    private final T data;
+public record ApiResponse<T>(int status, String message, T data) {
 
-    private ApiResponse(int statusCode, String message, T data) {
-        this.statusCode = statusCode;
-        this.message = message;
-        this.data = data;
+    public static <T> ResponseEntity<ApiResponse<T>> ok(String msg, T data) {
+        return ResponseEntity.ok(new ApiResponse<>(200, msg, data));
     }
 
-    /* Factory Methods */
-    public static <T> ApiResponse<T> ok(String message, T data) {
-        return new ApiResponse<>(200, message, data);
-    }
-    
-    public static <T> ApiResponse<T> created(String message, T data) {
-        return new ApiResponse<>(201, message, data);
+    public static <T> ResponseEntity<ApiResponse<T>> created(String msg, T data) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(new ApiResponse<>(201, msg, data));
     }
 
-    public static <T> ApiResponse<T> badRequest(String message) {
-        return new ApiResponse<>(400, message, null);
+    public static <T> ResponseEntity<ApiResponse<T>> badRequest(String msg) {
+        return ResponseEntity.badRequest().body(new ApiResponse<>(400, msg, null));
     }
 
-    public static <T> ApiResponse<T> notFound(String message) {
-        return new ApiResponse<>(404, message, null);
+    public static <T> ResponseEntity<ApiResponse<T>> unauthorized(String msg) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(new ApiResponse<>(401, msg, null));
     }
 
-    public static <T> ApiResponse<T> conflict(String message) {
-        return new ApiResponse<>(409, message, null);
+    public static <T> ResponseEntity<ApiResponse<T>> forbidden(String msg) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(new ApiResponse<>(403, msg, null));
     }
 
-    public static <T> ApiResponse<T> internalError(String message) {
-        return new ApiResponse<>(500, message, null);
+    public static <T> ResponseEntity<ApiResponse<T>> notFound(String msg) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ApiResponse<>(404, msg, null));
     }
 
-    /* Getters */
-    public int getStatusCode() {
-        return statusCode;
-    }
-    public String getMessage() {
-        return message;
-    }
-    public T getData() {
-        return data;
+    public static <T> ResponseEntity<ApiResponse<T>> conflict(String msg) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ApiResponse<>(409, msg, null));
     }
 
-    @Override
-    public String toString() {
-        return String.format("ApiResponse{statusCode=%d, message='%s', data=%s}", statusCode, message, data);
+    public static <T> ResponseEntity<ApiResponse<T>> error(String msg) {
+        return ResponseEntity.internalServerError()
+            .body(new ApiResponse<>(500, msg, null));
     }
 }
