@@ -1,111 +1,84 @@
 package com.crs.controller;
 
+import com.crs.entity.StudentEntity;
 import com.crs.exception.StudentNotFoundException;
-import com.crs.model.EligibilityResult;
-import com.crs.model.Student;
+import com.crs.logic.EligibilityChecker.EligibilityResult;
 import com.crs.service.EnrollmentService;
+import jakarta.validation.constraints.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.logging.Logger;
+import java.util.Map;
 
+@RestController
+@RequestMapping("/enrollment")
+@RequiredArgsConstructor
+@Validated
 public class EnrollmentController {
-    private static final Logger LOGGER = Logger.getLogger(EnrollmentController.class.getName());
 
-    /* Dependencies */
     private final EnrollmentService enrollmentService;
 
-    /* Constructor */
-    public EnrollmentController(EnrollmentService enrollmentService) {
-        if (enrollmentService == null) {
-            throw new IllegalArgumentException("EnrollmentService cannot be null.");
-        }
-        this.enrollmentService = enrollmentService;
+    /** GET /enrollment/eligibility/{studentId}?semester=SEM1+2024/2025 */
+    @GetMapping("/eligibility/{studentId}")
+    public ResponseEntity<ApiResponse<EligibilityResult>> checkEligibility(
+            @PathVariable String studentId,
+            @RequestParam @NotBlank String semester) {
+        try {
+            EligibilityResult r = enrollmentService.confirmEligibility(studentId, semester);
+            String msg = r.eligible()
+                ? "Student is eligible for progression."
+                : "Student is NOT eligible for progression.";
+            return ApiResponse.ok(msg, r);
+        } catch (StudentNotFoundException e) { return ApiResponse.notFound(e.getMessage()); }
+          catch (IllegalArgumentException  e) { return ApiResponse.badRequest(e.getMessage()); }
     }
 
-    /* Endpoints */
-    public ApiResponse<Student> requestEnrollment(int studentId) {
-        LOGGER.info("Enrollment request received for student ID: " + studentId);
-
-        if (studentId <= 0) {
-            return ApiResponse.badRequest("Student ID must be positive.");
-        }
-
+    /** POST /enrollment/{studentId}?semester=SEM1+2024/2025 */
+    @PostMapping("/{studentId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> requestEnrolment(
+            @PathVariable String studentId,
+            @RequestParam @NotBlank String semester) {
         try {
-            Student student = enrollmentService.findStudentById(studentId);
-            boolean enrolled = enrollmentService.allowingRegistration(student);
-
+            boolean enrolled = enrollmentService.allowRegistration(studentId, semester);
             if (enrolled) {
-                return ApiResponse.created(
-                    "Student successfully enrolled or Level 1 " + student.getCurrentLevel()
-                    + ", Semester " + student.getCurrentSemester() + ".",
-                    student);
-            } else {
-                return ApiResponse.conflict(
-                    "Enrollement denied. Student does not meet eligibility criteria.");
+                StudentEntity s = enrollmentService.findStudent(studentId);
+                return ApiResponse.created("Student successfully enrolled.",
+                    Map.of("studentId", studentId,
+                           "newLevel", s.getCurrentLevel(),
+                           "newSemester", s.getCurrentSemester()));
             }
-        } catch (StudentNotFoundException e) {
-            LOGGER.warning(e.getMessage());
-            return ApiResponse.notFound(e.getMessage());
-        } catch (IllegalArgumentException e) {
-            LOGGER.warning("Validation error during enrollment: " + e.getMessage());
-            return ApiResponse.badRequest(e.getMessage());
-        } catch (Exception e) {
-            LOGGER.severe("Unexpected error during enrollment: " + e.getMessage());
-            return ApiResponse.internalServerError("An unexpected error occurred. Please try again later.");
-        }
+            return ApiResponse.conflict("Enrolment denied — student does not meet eligibility criteria.");
+        } catch (StudentNotFoundException e) { return ApiResponse.notFound(e.getMessage()); }
+          catch (IllegalArgumentException  e) { return ApiResponse.badRequest(e.getMessage()); }
     }
 
-    public ApiResponse<EligibilityResult> checkStudentEligibility(int studentID) {
-        LOGGER.info("Eligibility check request received for student ID: " + studentID);
-
-        if (studentID <= 0) {
-            return ApiResponse.badRequest("Student ID must be positive.");
-        }
-
-        try {
-            Student student = enrollmentService.findStudentById(studentID);
-            EligibilityResult result = enrollmentService.confirmEligibility(student);
-
-            String msg = result.isEligibile()
-                ? "Student is eligible for enrollment."
-                : "Student is not eligible for enrollment. ";
-
-            return ApiResponse.ok(msg, result);
-
-        } catch (StudentNotFoundException e) {
-            LOGGER.warning(e.getMessage());
-            return ApiResponse.notFound(e.getMessage());
-
-        } catch (IllegalArgumentException e) {
-            LOGGER.warning("Validation error during eligibility check: " + e.getMessage());
-            return ApiResponse.badRequest(e.getMessage());
-
-        } catch (Exception e) {
-            LOGGER.severe("Unexpected error during eligibility check: " + e.getMessage());
-            return ApiResponse.internalServerError("An unexpected error occurred. Please try again later.");
-        }
+    /** GET /enrollment/ineligible */
+    @GetMapping("/ineligible")
+    public ResponseEntity<ApiResponse<List<String>>> getIneligibleStudents() {
+        List<String> ids = enrollmentService.listIneligibleStudents()
+            .stream().map(StudentEntity::getUserId).toList();
+        return ApiResponse.ok(ids.size() + " ineligible student(s).", ids);
     }
 
-    public ApiResponse<List<Student>> listIneligibleStudents() {
-        LOGGER.info("Request received to list ineligible students.");
-
+    /** POST /enrollment/register */
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<Map<String, String>>> registerStudent(
+            @RequestParam @NotBlank String userId,
+            @RequestParam @NotBlank String firstName,
+            @RequestParam @NotBlank String lastName,
+            @RequestParam @Email String email,
+            @RequestParam @NotBlank String program,
+            @RequestParam @Min(100) @Max(900) int level,
+            @RequestParam @NotBlank String semester) {
         try {
-            List<Student> allStudents = enrollmentService.listAllStudents();
-            List<Student> ineligible = enrollmentService.listIneligibleStudents(allStudents);
-
-            String msg = ineligible.isEmpty()
-                ? "All students are eligible for enrollment."
-                : String.format("%d ineligible students found.", ineligible.size());
-
-            return ApiResponse.ok(msg, ineligible);
-
-        } catch (IllegalArgumentException e) {
-            LOGGER.warning("Unexpected error while listing ineligible students: " + e.getMessage());
-            return ApiResponse.badRequest(e.getMessage());
-
-        } catch (Exception e) {
-            LOGGER.severe("Unexpected error while listing ineligible students: " + e.getMessage());
-            return ApiResponse.internalServerError("An unexpected error occurred. Please try again later.");
-        }
+            StudentEntity s = enrollmentService.registerStudent(
+                userId, firstName, lastName, email, program, level, semester);
+            return ApiResponse.created("Student registered.",
+                Map.of("userId", s.getUserId(), "email", s.getEmail()));
+        } catch (IllegalArgumentException e) { return ApiResponse.badRequest(e.getMessage()); }
+          catch (Exception e) { return ApiResponse.conflict(e.getMessage()); }
     }
 }
