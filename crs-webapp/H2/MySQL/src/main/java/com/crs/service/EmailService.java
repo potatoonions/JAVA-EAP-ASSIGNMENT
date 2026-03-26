@@ -1,11 +1,11 @@
 package com.crs.service;
 
-import crs.config.EmailConfig;
-import crs.exception.EmailDeliveryException;
-import crs.entity.AcademicReport;
-import crs.entity.EmailRecord;
-import crs.entity.EmailRecord.DeliveryStatus;
-import crs.entity.EmailRecord.EmailType;
+import com.crs.config.EmailConfig;
+import com.crs.exception.EmailDeliveryException;
+import com.crs.entity.AcademicReport;
+import com.crs.entity.EmailRecord;
+import com.crs.entity.EmailRecord.DeliveryStatus;
+import com.crs.entity.EmailRecord.EmailType;
  
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
