@@ -9,10 +9,10 @@ public class DuplicateNotificationException extends RuntimeException {
         super(String.format(
             "Duplicate notification suppressed — type='%s', recipient='%s'.",
                 notificationType, recipientEmail));
-        this.recipientEmail   = recipientEmail;
+        this.recipientEmail = recipientEmail;
         this.notificationType = notificationType;
     }
  
-    public String getRecipientEmail()   { return recipientEmail; }
+    public String getRecipientEmail() { return recipientEmail; }
     public String getNotificationType() { return notificationType; }
 }
