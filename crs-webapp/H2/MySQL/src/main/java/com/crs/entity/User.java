@@ -7,13 +7,11 @@ public class User {
 
     // Inner enumerations
 
-
     public enum Role {
         STUDENT,
         INSTRUCTOR,
         ADMIN
     }
-
 
     public enum Status {
         ACTIVE,
@@ -63,7 +61,6 @@ public class User {
         setRole(role);
         setStatus(status);
     }
-
 
     public User(int userId, String name, String email, String password) {
         this(userId, name, email, password, Role.STUDENT, Status.PENDING_VERIFICATION);
