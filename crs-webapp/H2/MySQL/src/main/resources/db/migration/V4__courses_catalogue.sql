@@ -3,17 +3,17 @@ CREATE TABLE IF NOT EXISTS courses (
     course_id VARCHAR(10) NOT NULL,
     course_name VARCHAR(120) NOT NULL,
     credits TINYINT NOT NULL,
-    semester VARCHAR(20) NOT NULL,   -- Spring | Summer | Fall
+    semester VARCHAR(20) NOT NULL,
     instructor VARCHAR(80),
     capacity SMALLINT,
 
     CONSTRAINT pk_courses PRIMARY KEY (course_id),
-    CONSTRAINT chk_courses_credits  CHECK (credits > 0),
+    CONSTRAINT chk_courses_credits CHECK (credits > 0),
     CONSTRAINT chk_courses_semester CHECK (semester IN ('Spring','Summer','Fall'))
 );
 
-CREATE INDEX idx_courses_semester    ON courses(semester);
-CREATE INDEX idx_courses_instructor  ON courses(instructor);
+CREATE INDEX idx_courses_semester ON courses(semester);
+CREATE INDEX idx_courses_instructor ON courses(instructor);
 
 INSERT INTO courses (course_id, course_name, credits, semester, instructor, capacity) VALUES
   ('C101','Algorithms',4,'Spring','Dr. Brown',143),
