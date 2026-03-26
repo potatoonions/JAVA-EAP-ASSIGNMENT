@@ -1,15 +1,10 @@
 package com.crs.exception;
 
 public class StudentNotFoundException extends RuntimeException {
-    
-    private final int studentId;
-
-    public StudentNotFoundException(int studentId) {
+    private final String studentId;
+    public StudentNotFoundException(String studentId) {
         super("No student found with ID: " + studentId);
         this.studentId = studentId;
     }
-
-    public int getStudentId() {
-        return studentId;
-    }
+    public String getStudentId() { return studentId; }
 }
