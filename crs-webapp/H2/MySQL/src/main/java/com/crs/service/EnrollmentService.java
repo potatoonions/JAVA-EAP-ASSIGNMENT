@@ -2,137 +2,116 @@ package com.crs.service;
 
 import com.crs.exception.StudentNotFoundException;
 import com.crs.logic.EligibilityChecker;
-import com.crs.entity.Entities;
-import com.crs.entity.Student;
-import com.crs.entity.Student.EnrollmentStatus;
+import com.crs.logic.EligibilityChecker.EligibilityResult;
+import com.crs.entity.EnrollmentLogEntity;
+import com.crs.entity.StudentEntity;
+import com.crs.entity.UserEntity;
+import com.crs.repository.EnrollmentLogRepository;
+import com.crs.repository.StudentRepository;
+import com.crs.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
-import java.util.Map;
-import java.util.logging.*;
 
+@Service
+@RequiredArgsConstructor
+@Slf4j
+@Transactional(readOnly = true)
 public class EnrollmentService {
-    private static final Logger LOGGER = Logger.getLogger(EnrollmentService.class.getName());
 
-    /* Dependencies */
+    private final StudentRepository studentRepository;
+    private final UserRepository userRepository;
+    private final EnrollmentLogRepository logRepository;
     private final EligibilityChecker eligibilityChecker;
 
-    private final Map<Integer, Student> studentRegistry = new HashMap<>();
-
-    /* Constructor */
-    public EnrollmentService() {
-        this.eligibilityChecker = new EligibilityChecker();
+    // Read operations
+    public StudentEntity findStudent(String studentId) {
+        return studentRepository.findById(studentId.toUpperCase())
+            .orElseThrow(() -> new StudentNotFoundException(studentId));
     }
 
-    public EnrollmentService(EligibilityChecker eligibilityChecker) {
-        if (eligibilityChecker == null) {
-            throw new IllegalArgumentException("EligibilityChecker cannot be null.");
-        }
-        this.eligibilityChecker = eligibilityChecker;
+
+    public EligibilityResult confirmEligibility(String studentId, String semester) {
+        StudentEntity student = findStudent(studentId);
+        return eligibilityChecker.verifyEligibility(student, semester);
     }
 
-    /* Registry Management */
-    public void registerStudent(Student student) {
-        if (student == null) {
-            throw new IllegalArgumentException("Student cannot be null.");
-        }
-        studentRegistry.put(student.getStudentId(), student);
-        LOGGER.info("Student registered: " + student);
+    public List<StudentEntity> listIneligibleStudents() {
+        return logRepository.findIneligibleStudents();
     }
 
-    public List<Student> getAllStudents() {
-        return new ArrayList<>(studentRegistry.values());
-    }
+    // Write operations
+    @Transactional
+    public boolean allowRegistration(String studentId, String semester) {
+        StudentEntity  student = findStudent(studentId);
+        EligibilityResult result = eligibilityChecker.verifyEligibility(student, semester);
+        EnrollmentLogEntity logEntry = new EnrollmentLogEntity();
+        logEntry.setStudent(student);
+        logEntry.setCgpaAtCheck(BigDecimal.valueOf(result.cgpa())
+            .setScale(4, RoundingMode.HALF_UP));
+        logEntry.setFailedCourses(result.failedCourseCount());
 
-    /* Core Services */
-    public EligibilityResult checkStudentEligibility(Student student) {
-        validateStudent(student);
-
-        if (student.getCourseResults() == null || student.getCourseResults().isEmpty()) {
-            throw new IllegalArgumentException("Student must have course results to check eligibility.");
-        }
-
-        EligibilityResult result = eligibilityChecker.verifyEligibility(student.getCourseResults());
-
-        LOGGER.info(String.format("Elgibiltiy check for student %d (%s): %s", student.getStudentId(), student.getName(), result.getMessage()));
-
-        return result;
-    }
-
-    public boolean allowingRegistration(Student student) {
-        validateStudent(student);
-
-        EligibilityResult eligibilityResult = confirmEligibility(student);
-
-        if (eligibility.isEligible()) {
+        if (result.eligible()) {
             advanceStudentLevel(student);
-            student.setEnrollmentStatus(EnrollmentStatus.ENROLLED);
-            studentRegistry.put(student.getStudentId(), student);
+            student.setRecoveryStatus(StudentEntity.RecoveryStatus.COMPLETED);
+            studentRepository.save(student);
 
-            LOGGER.info(String.format(
-                "Student %d (%s) successfully enrolled. Now at Level %d, Semester %d.",
-                student.getStudentId(), 
-                student.getName(), 
-                student.getCurrentLevel(), 
-                student.getCurrentSemester()
-            ));
-            return true;
+            logEntry.setDecision(EnrollmentLogEntity.Decision.ENROLLED);
+            logEntry.setNewLevel(student.getCurrentLevel());
+            logEntry.setNotes("Auto-enrolled after eligibility check.");
+
+            log.info("Student {} enrolled — new level {}, semester {}",
+                studentId, student.getCurrentLevel(), student.getCurrentSemester());
         } else {
-            student.setEnrollmentStatus(EnrollmentStatus.INELIGIBLE);
-            studentRegistry.put(student.getStudentId(), student);
+            student.setRecoveryStatus(StudentEntity.RecoveryStatus.IN_PROGRESS);
+            studentRepository.save(student);
 
-            LOGGER.warning(String.format(
-                "Student %d (%s) is ineligible for enrollment. Reason: %s",
-                student.getStudentId(), 
-                student.getName(), 
-                eligibility.getMessage()
-            ));
-            return false;
+            logEntry.setDecision(EnrollmentLogEntity.Decision.INELIGIBLE);
+            logEntry.setNotes(result.message());
+
+            log.warn("Student {} ineligible — {}", studentId, result.message());
         }
+
+        logRepository.save(logEntry);
+        return result.eligible();
     }
 
-    public List<Student> listIneligibleStudents() {
-        if (student == null) {
-            throw new IllegalArgumentException("Student cannot be null.");
-        }
+    @Transactional
+    public StudentEntity registerStudent(String userId, String firstName, String lastName, String email, String program, int level, String semester) {
+        if (userRepository.existsByEmailIgnoreCase(email))
+            throw new IllegalArgumentException(
+                "Email address is already registered: " + email);
 
-        List<Student> ineligible = new ArrayList<>();
+        UserEntity user = new UserEntity(
+            userId.toUpperCase(), firstName, lastName,
+            email.toLowerCase(), UserEntity.Role.STUDENT);
+        user.setAccountStatus(UserEntity.AccountStatus.ACTIVE);
+        userRepository.save(user);
 
-        for (Student student : students) {
-            try {
-                EligibilityResult result = confirmEligibility(student);
-                if (!result.isEligible()) {
-                    student.setEnrollmentStatus(EnrollmentStatus.INELIGIBLE);
-                    ineligible.add(student);                }
-            } catch (IllegalArgumentException e) {
-                LOGGER.warning(String.format(
-                    "Skipping student %d (%s) during ineligible listing due to error: %s",
-                    student.getStudentId(), 
-                    student.getName(), 
-                    e.getMessage()
-                ));
-                student.setEnrollmentStatus(EnrollmentStatus.INELIGIBLE);
-                ineligible.add(student);
-            }
-        }
+        StudentEntity student = new StudentEntity();
+        student.setUserId(user.getUserId());
+        student.setUser(user);
+        student.setProgram(program);
+        student.setCurrentLevel(level);
+        student.setCurrentSemester(semester);
+        student = studentRepository.save(student);
 
-        return ineligible;
+        log.info("Registered new student: {}", student.getUserId());
+        return student;
     }
 
-    /* Private helpers */
-    private void validateStudent(Student student) {
-        if (student == null) {
-            throw new IllegalArgumentException("Student cannot be null.");
-        }
-    }
-
-    private void advanceStudentLevel(Student student) {
-        if (student.getCurrentSemester() == 2) {
+    private void advanceStudentLevel(StudentEntity student) {
+        String sem = student.getCurrentSemester();
+        if (sem.startsWith("SEM2")) {
             student.setCurrentLevel(student.getCurrentLevel() + 100);
-            student.setCurrentSemester(1);
+            student.setCurrentSemester(sem.replace("SEM2", "SEM1"));
         } else {
-            student.setCurrentSemester(student.getCurrentSemester() + 1);
+            student.setCurrentSemester(sem.replace("SEM1", "SEM2"));
         }
     }
 }
