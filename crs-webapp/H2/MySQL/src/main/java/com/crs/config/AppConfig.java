@@ -28,10 +28,9 @@ public class AppConfig {
     @Value("${crs.notification.duplicate-suppression-minutes:60}")
     private int duplicateSuppressionMinutes;
 
-    // Expose properties for other beans
     public boolean isSimulationMode() { return simulationMode; }
-    public String getSenderEmail() { return senderEmail; }
-    public String getBaseUrl() { return baseUrl; }
+    public String  getSenderEmail() { return senderEmail; }
+    public String  getBaseUrl() { return baseUrl; }
     public int getSessionTimeoutMinutes() { return sessionTimeoutMinutes; }
     public int getMaxFailedAttempts() { return maxFailedAttempts; }
     public int getDuplicateSuppressionMinutes() { return duplicateSuppressionMinutes; }
