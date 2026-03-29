@@ -1,19 +1,18 @@
-package com.crs.email.notification;
+package com.crs.notification;
 
-import com.crs.email.config.EmailConfig;
-import com.crs.email.exception.DuplicateNotificationException;
-import com.crs.email.exception.EmailDeliveryException;
-import com.crs.email.entity.AcademicReport;
-import com.crs.email.entity.EmailRecord;
-import com.crs.email.entity.EmailRecord.EmailType;
-import com.crs.email.entity.Student;
-import com.crs.email.entity.User;
-import com.crs.email.entity.User.AccountStatus;
-import com.crs.email.scheduler.NotificationScheduler;
-import com.crs.email.scheduler.ScheduledNotification;
-import com.crs.email.service.EmailService;
-import com.crs.email.template.EmailTemplates;
-import com.crs.email.template.TemplateEngine;
+import com.crs.config.EmailConfig;
+import com.crs.exception.DuplicateNotificationException;
+import com.crs.exception.EmailDeliveryException;
+import com.crs.entity.AcademicReport;
+import com.crs.entity.EmailRecord;
+import com.crs.entity.EmailRecord.EmailType;
+import com.crs.entity.Student;
+import com.crs.entity.User;
+import com.crs.scheduler.NotificationScheduler;
+import com.crs.scheduler.ScheduledNotification;
+import com.crs.service.EmailService;
+import com.crs.template.EmailTemplates;
+import com.crs.template.TemplateEngine;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -23,28 +22,25 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 
+
+@org.springframework.stereotype.Component
+@lombok.RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class NotificationManager {
 
     private static final Logger LOGGER = Logger.getLogger(NotificationManager.class.getName());
 
     // Dependencies
-    private final EmailService emailService;
-    private final NotificationScheduler scheduler;
 
-    // Duplicate-suppression ledger   key: "recipientEmail|TYPE"
+    private final EmailService           emailService;
+    private final NotificationScheduler  scheduler;
+
+    // Duplicate-suppression ledger
+
     private final Map<String, LocalDateTime> lastSentLedger = new HashMap<>();
 
-    // Constructor
-    public NotificationManager(EmailService emailService, NotificationScheduler scheduler) {
-        if (emailService == null)
-            throw new IllegalArgumentException("EmailService must not be null.");
-        if (scheduler == null)
-            throw new IllegalArgumentException("NotificationScheduler must not be null.");
-        this.emailService = emailService;
-        this.scheduler = scheduler;
-    } 
-
     // Account lifecycle notifications
+
     public void notifyAccountCreated(User user) {
         validateUser(user);
 
@@ -69,10 +65,11 @@ public class NotificationManager {
         }
     }
 
+
     public void notifyAccountUpdated(User user) {
         validateUser(user);
 
-        if (user.getAccountStatus() == AccountStatus.INACTIVE) {
+        if (user.getStatus() == User.Status.INACTIVE) {
             notifyAccountDeactivated(user);
             return;
         }
@@ -122,6 +119,7 @@ public class NotificationManager {
     }
 
     // Password reset
+
     public void notifyPasswordReset(User user) {
         validateUser(user);
 
@@ -129,7 +127,7 @@ public class NotificationManager {
 
         // Generate a reset token (in production use SecureRandom / JWT)
         String resetToken = UUID.randomUUID().toString().replace("-", "");
-        String resetLink  = EmailConfig.PASSWORD_RESET_URL + resetToken;
+        String resetLink = EmailConfig.PASSWORD_RESET_URL + resetToken;
 
         Map<String, String> tokens = commonTokens(user);
         tokens.put("{RESET_LINK}", resetLink);
@@ -148,6 +146,7 @@ public class NotificationManager {
     }
 
     // Recovery plan notifications
+
     public void notifyRecoveryPlanCreated(Student student) {
         validateStudent(student);
 
@@ -162,7 +161,7 @@ public class NotificationManager {
 
         Map<String, String> tokens = commonTokens(student);
         tokens.put("{PLAN_DETAILS}", student.getRecoveryPlanDetails());
-        tokens.put("{LOGIN_URL}",    EmailConfig.LOGIN_URL);
+        tokens.put("{LOGIN_URL}", EmailConfig.LOGIN_URL);
 
         String body = TemplateEngine.resolve(EmailTemplates.BODY_RECOVERY_PLAN, tokens);
 
@@ -175,6 +174,7 @@ public class NotificationManager {
             LOGGER.info("[NotificationManager] Recovery-plan notification sent to: "
                     + student.getEmail());
 
+            // Automatically schedule a follow-up reminder 48 hours later
             scheduleProgressReminder(student,
                     EmailConfig.REMINDER_HOURS_BEFORE_DEADLINE * 60L);
 
@@ -213,6 +213,7 @@ public class NotificationManager {
     }
 
     // Academic performance report
+
     public void notifyPerformanceReport(Student student, AcademicReport report) {
         validateStudent(student);
         if (report == null)
@@ -222,7 +223,7 @@ public class NotificationManager {
 
         Map<String, String> tokens = commonTokens(student);
         tokens.put("{REPORT_BODY}", report.toEmailBody());
-        tokens.put("{LOGIN_URL}",   EmailConfig.LOGIN_URL);
+        tokens.put("{LOGIN_URL}", EmailConfig.LOGIN_URL);
 
         String body = TemplateEngine.resolve(EmailTemplates.BODY_PERFORMANCE_REPORT, tokens);
 
@@ -232,6 +233,7 @@ public class NotificationManager {
             LOGGER.info("[NotificationManager] Performance-report notification sent to: "
                     + student.getEmail());
 
+            // CC academic advisor if configured
             if (student.getAdvisorEmail() != null && !student.getAdvisorEmail().isBlank()) {
                 Map<String, String> advisorTokens = new HashMap<>(tokens);
                 advisorTokens.put("{FULL_NAME}", "Academic Advisor");
@@ -250,6 +252,7 @@ public class NotificationManager {
     }
 
     // Scheduler integration
+
     public ScheduledNotification scheduleProgressReminder(Student student, long delayMinutes) {
         validateStudent(student);
 
@@ -277,6 +280,7 @@ public class NotificationManager {
     }
 
     // Duplicate suppression helpers
+
     private boolean isDuplicate(String email, EmailType type) {
         String key = email.toLowerCase() + "|" + type.name();
         LocalDateTime lastSent = lastSentLedger.get(key);
@@ -296,16 +300,19 @@ public class NotificationManager {
         return false;
     }
 
+    /** Records the current timestamp for the (email, type) pair. */
     private void recordSent(String email, EmailType type) {
         String key = email.toLowerCase() + "|" + type.name();
         lastSentLedger.put(key, LocalDateTime.now());
     }
 
     // Template token builders
+
+
     private Map<String, String> commonTokens(User user) {
         Map<String, String> tokens = new HashMap<>();
         tokens.put("{FULL_NAME}", user.getFullName());
-        tokens.put("{USER_ID}", user.getUserId());
+        tokens.put("{USER_ID}", String.valueOf(user.getUserId()));
         tokens.put("{ROLE}", capitalise(user.getRole().name()));
         tokens.put("{SENDER_NAME}", EmailConfig.SENDER_NAME);
         tokens.put("{SUPPORT_EMAIL}", EmailConfig.REPLY_TO_EMAIL);
@@ -323,6 +330,7 @@ public class NotificationManager {
     }
 
     // Validation helpers
+
     private void validateUser(User user) {
         if (user == null)
             throw new IllegalArgumentException("User must not be null.");
@@ -338,6 +346,7 @@ public class NotificationManager {
     }
 
     // String utilities
+
     private static String capitalise(String s) {
         if (s == null || s.isEmpty()) return s;
         return Character.toUpperCase(s.charAt(0)) + s.substring(1).toLowerCase();
