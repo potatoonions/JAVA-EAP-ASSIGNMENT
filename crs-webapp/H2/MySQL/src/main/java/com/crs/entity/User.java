@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 
 public class User {
 
-    // Inner enumerations
+    //  Inner enumerations 
 
     public enum Role {
         STUDENT,
@@ -17,17 +17,17 @@ public class User {
         ACTIVE,
         INACTIVE,
         DEACTIVATED,
-        PENDING_VERIFICATION
+        PENDING_VERIFICATION  
     }
 
-    // Validation helpers
+    //  Validation helpers 
 
     private static final Pattern EMAIL_PATTERN =
         Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     public static final int MIN_PASSWORD_LENGTH = 8;
 
-    // Attributes
+    //  Attributes 
 
     private int userId;
     private String name;
@@ -42,7 +42,7 @@ public class User {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Constructors
+    //  Constructors 
 
     public User() {
         this.status = Status.PENDING_VERIFICATION;
@@ -75,18 +75,18 @@ public class User {
     public Role getRole() { return role; }
     public Status getStatus() { return status; }
     public String getPasswordResetToken() { return passwordResetToken; }
-    public LocalDateTime getPasswordResetExpiry() { return passwordResetExpiry; }
+    public LocalDateTime  getPasswordResetExpiry() { return passwordResetExpiry; }
     public int getFailedLoginAttempts() { return failedLoginAttempts; }
-    public LocalDateTime getLastLoginAt() { return lastLoginAt; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public LocalDateTime  getLastLoginAt() { return lastLoginAt; }
+    public LocalDateTime  getCreatedAt() { return createdAt; }
+    public LocalDateTime  getUpdatedAt() { return updatedAt; }
 
-    // Setters
+    // Setters (with validation)
 
     public void setUserId(int userId) {
         if (userId < 0)
             throw new IllegalArgumentException("User ID must not be negative.");
-        this.userId = userId;
+        this.userId    = userId;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -136,7 +136,9 @@ public class User {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt   = createdAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt   = updatedAt; }
 
-    // Convenience helpers
+    // Convenience helpers 
+
+    public String getFullName() { return name; }
 
     public boolean isActive() { return status == Status.ACTIVE; }
 
@@ -146,17 +148,15 @@ public class User {
 
     public void clearFailedAttempts() { this.failedLoginAttempts = 0; }
 
-  
     public static boolean isValidEmail(String email) {
         return email != null && EMAIL_PATTERN.matcher(email.trim()).matches();
     }
-
 
     public static boolean isValidPassword(String rawPassword) {
         return rawPassword != null && rawPassword.length() >= MIN_PASSWORD_LENGTH;
     }
 
-    // Object overrides 
+    // Object overrides
 
     @Override
     public boolean equals(Object o) {
