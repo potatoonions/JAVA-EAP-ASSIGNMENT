@@ -6,12 +6,15 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SecurityConfig {
-    /* Roles */
+
+    // Role constants 
+
     public static final String ROLE_ADMIN = "ADMIN";
     public static final String ROLE_INSTRUCTOR = "INSTRUCTOR";
     public static final String ROLE_STUDENT = "STUDENT";
 
-    /* Actions */
+    // Action constants
+
     public static final String ACTION_USER_CREATE = "USER_CREATE";
     public static final String ACTION_USER_UPDATE = "USER_UPDATE";
     public static final String ACTION_USER_DEACTIVATE = "USER_DEACTIVATE";
@@ -30,12 +33,13 @@ public class SecurityConfig {
     public static final String ACTION_EMAIL_SEND = "EMAIL_NOTIFICATION_SEND";
     public static final String ACTION_SYSTEM_CONFIG = "SYSTEM_CONFIG";
 
-    /* Perms */
+    // Permission matrix
+
     private static final Map<String, Set<String>> PERMISSION_MATRIX;
 
     static {
         PERMISSION_MATRIX = new HashMap<>();
- 
+
         PERMISSION_MATRIX.put(ROLE_ADMIN, Set.of(
             ACTION_USER_CREATE, ACTION_USER_UPDATE, ACTION_USER_DEACTIVATE,
             ACTION_USER_DELETE, ACTION_USER_VIEW_ALL, ACTION_USER_VIEW_SELF,
@@ -45,7 +49,7 @@ public class SecurityConfig {
             ACTION_ELIGIBILITY_CHECK, ACTION_ENROLMENT_APPROVE,
             ACTION_EMAIL_SEND, ACTION_SYSTEM_CONFIG
         ));
- 
+
         PERMISSION_MATRIX.put(ROLE_INSTRUCTOR, Set.of(
             ACTION_USER_VIEW_SELF,
             ACTION_RECOVERY_PLAN_CREATE, ACTION_RECOVERY_PLAN_UPDATE,
@@ -53,7 +57,7 @@ public class SecurityConfig {
             ACTION_REPORT_VIEW, ACTION_REPORT_GENERATE, ACTION_REPORT_EMAIL,
             ACTION_ELIGIBILITY_CHECK, ACTION_EMAIL_SEND
         ));
- 
+
         PERMISSION_MATRIX.put(ROLE_STUDENT, Set.of(
             ACTION_USER_VIEW_SELF,
             ACTION_RECOVERY_PLAN_VIEW,
@@ -61,45 +65,45 @@ public class SecurityConfig {
         ));
     }
 
-    /* Configuration */
+    // Configuration constants
+
     public static final int SESSION_TIMEOUT_MINUTES = 30;
 
     public static final int MAX_FAILED_LOGIN_ATTEMPTS = 5;
 
     public static final int MIN_PASSWORD_LENGTH = 8;
 
-    /* Session store */
+    // Singleton 
+
+    private static final SecurityConfig INSTANCE = new SecurityConfig();
+    public  static SecurityConfig getInstance()  { return INSTANCE; }
+
+    // Session store
+
     private final Map<String, Session> sessionStore = new ConcurrentHashMap<>();
 
     private final Map<Integer, String> userSessionIndex = new ConcurrentHashMap<>();
 
-    /* Singleton instance */
-    private static final SecurityConfig INSTANCE = new SecurityConfig();
-    public static SecurityConfig getInstance() {
-        return INSTANCE;
-    }
-
-    private SecurityConfig() {}
-
-    /*Session management */
+    // Session management
+    
     public String loginUser(UserPrincipal principal) {
         if (principal == null)
             throw new IllegalArgumentException("UserPrincipal must not be null.");
- 
+
         // Invalidate any existing session for this user
         logoutUser(principal.getUserId());
- 
+
         String sessionId = generateSessionId();
         Session session  = new Session(sessionId, principal,
             LocalDateTime.now().plusMinutes(SESSION_TIMEOUT_MINUTES));
- 
+
         sessionStore.put(sessionId, session);
         userSessionIndex.put(principal.getUserId(), sessionId);
- 
+
         LoggerUtil.getInstance().logInfo(
             "SecurityConfig.loginUser — userId=" + principal.getUserId()
             + " role=" + principal.getRole() + " sessionId=" + mask(sessionId));
- 
+
         return sessionId;
     }
 
@@ -118,7 +122,8 @@ public class SecurityConfig {
         if (sessionId != null) sessionStore.remove(sessionId);
     }
 
-    /*Authentication */
+    // Authentication
+
     public boolean isAuthenticated(String sessionId) {
         if (sessionId == null) return false;
         Session session = sessionStore.get(sessionId);
@@ -128,7 +133,6 @@ public class SecurityConfig {
             userSessionIndex.remove(session.getPrincipal().getUserId());
             return false;
         }
-        // Sliding window — extend expiry on every validated call
         session.extendExpiry(SESSION_TIMEOUT_MINUTES);
         return true;
     }
@@ -138,7 +142,8 @@ public class SecurityConfig {
         return sessionStore.get(sessionId).getPrincipal();
     }
 
-    /*Authorization */
+    // Authorisation
+
     public boolean checkAccess(String role, String action) {
         if (role == null || action == null) return false;
         Set<String> permitted = PERMISSION_MATRIX.getOrDefault(
@@ -166,7 +171,8 @@ public class SecurityConfig {
                 role != null ? role.toUpperCase() : "", Collections.emptySet()));
     }
 
-    /* Session housekeeping */
+    // Session housekeeping
+
     public int cleanExpiredSessions() {
         List<String> expired = sessionStore.entrySet().stream()
             .filter(e -> e.getValue().isExpired())
@@ -187,22 +193,25 @@ public class SecurityConfig {
         return sessionStore.size();
     }
 
-    /* Private methods */
+    // Private helpers
+
     private String generateSessionId() {
         return UUID.randomUUID().toString().replace("-", "");
     }
- 
+
+    /** Returns the first 8 characters of a session ID for safe log output. */
     private String mask(String id) {
         return id.length() > 8 ? id.substring(0, 8) + "…" : id;
     }
 
-    /* Inner Session class */
+    // Inner value objects
+
     public static final class UserPrincipal {
         private final int userId;
         private final String name;
         private final String email;
         private final String role;
- 
+
         public UserPrincipal(int userId, String name, String email, String role) {
             if (userId <= 0) throw new IllegalArgumentException("userId must be positive.");
             if (name == null || name.isBlank()) throw new IllegalArgumentException("name required.");
@@ -213,16 +222,16 @@ public class SecurityConfig {
             this.email = email.trim().toLowerCase();
             this.role = role.trim().toUpperCase();
         }
- 
+
         public int getUserId() { return userId; }
         public String getName() { return name; }
         public String getEmail() { return email; }
         public String getRole() { return role; }
- 
+
         public boolean isAdmin() { return ROLE_ADMIN.equals(role); }
         public boolean isInstructor() { return ROLE_INSTRUCTOR.equals(role); }
         public boolean isStudent() { return ROLE_STUDENT.equals(role); }
- 
+
         @Override
         public String toString() {
             return String.format("UserPrincipal{userId=%d, email='%s', role=%s}",
@@ -234,17 +243,17 @@ public class SecurityConfig {
         private final String sessionId;
         private final UserPrincipal principal;
         private LocalDateTime expiresAt;
- 
+
         Session(String sessionId, UserPrincipal principal, LocalDateTime expiresAt) {
             this.sessionId = sessionId;
             this.principal = principal;
             this.expiresAt = expiresAt;
         }
- 
+
         UserPrincipal getPrincipal() { return principal; }
- 
+
         boolean isExpired() { return LocalDateTime.now().isAfter(expiresAt); }
- 
+
         void extendExpiry(int minutes) {
             this.expiresAt = LocalDateTime.now().plusMinutes(minutes);
         }
